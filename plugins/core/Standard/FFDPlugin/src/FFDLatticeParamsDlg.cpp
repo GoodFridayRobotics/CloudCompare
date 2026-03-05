@@ -20,7 +20,7 @@ FFDLatticeParamsDlg::FFDLatticeParamsDlg(QWidget* parent)
 	auto* xLayout = new QHBoxLayout();
 	xLayout->addWidget(new QLabel("X dimension:", this));
 	m_spinX = new QSpinBox(this);
-	m_spinX->setRange(2, 20);
+	m_spinX->setRange(2, 100);
 	m_spinX->setValue(3);
 	m_spinX->setToolTip("Number of control points along X axis");
 	xLayout->addWidget(m_spinX);
@@ -30,7 +30,7 @@ FFDLatticeParamsDlg::FFDLatticeParamsDlg(QWidget* parent)
 	auto* yLayout = new QHBoxLayout();
 	yLayout->addWidget(new QLabel("Y dimension:", this));
 	m_spinY = new QSpinBox(this);
-	m_spinY->setRange(2, 20);
+	m_spinY->setRange(2, 100);
 	m_spinY->setValue(3);
 	m_spinY->setToolTip("Number of control points along Y axis");
 	yLayout->addWidget(m_spinY);
@@ -40,7 +40,7 @@ FFDLatticeParamsDlg::FFDLatticeParamsDlg(QWidget* parent)
 	auto* zLayout = new QHBoxLayout();
 	zLayout->addWidget(new QLabel("Z dimension:", this));
 	m_spinZ = new QSpinBox(this);
-	m_spinZ->setRange(2, 20);
+	m_spinZ->setRange(2, 100);
 	m_spinZ->setValue(3);
 	m_spinZ->setToolTip("Number of control points along Z axis");
 	zLayout->addWidget(m_spinZ);
