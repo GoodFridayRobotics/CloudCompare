@@ -29,6 +29,7 @@
 
 #include <QObject>
 #include <algorithm>
+#include <vector>
 
 #include "FFDDebug.h"
 
@@ -85,6 +86,25 @@ namespace FFDAction
 
 		// Show dialog to get lattice parameters
 		FFDLatticeParamsDlg paramsDlg(nullptr);
+
+		// Collect available point clouds from DB tree for trajectory selection
+		{
+			ccHObject* dbRoot = appInterface->dbRootObject();
+			if (dbRoot)
+			{
+				ccHObject::Container pointClouds;
+				dbRoot->filterChildren(pointClouds, true, CC_TYPES::POINT_CLOUD, true);
+				std::vector<ccPointCloud*> candidates;
+				for (ccHObject* entity : pointClouds)
+				{
+					ccPointCloud* pc = ccHObjectCaster::ToPointCloud(entity);
+					if (pc)
+						candidates.push_back(pc);
+				}
+				paramsDlg.setAvailableTrajectories(candidates, cloud);
+			}
+		}
+
 		if (paramsDlg.exec() != QDialog::Accepted)
 		{
 			appInterface->dispToConsole( "[FFD] Cancelled by user", ccMainAppInterface::WRN_CONSOLE_MESSAGE );
@@ -94,6 +114,7 @@ namespace FFDAction
 		// Create the FFD lattice with user-specified dimensions
 		std::array<unsigned int, 3> latticeSize = paramsDlg.getLatticeSize();
 		DeformationType deformType = paramsDlg.getDeformationType();
+		ccPointCloud* trajectoryCloud = paramsDlg.getSelectedTrajectory();
 		FFDLattice* lattice = new FFDLattice(latticeSize, cloud->getOwnBB());
 		lattice->setDeformationType(deformType);
 
@@ -159,6 +180,17 @@ namespace FFDAction
 		ccFFDDeformationTool* tool = new ccFFDDeformationTool(cloud, previewCloud, appInterface);
 		FFD_DEBUG("performDeformation: tool created=" << tool);
 		s_activeTool = tool;
+
+		if (trajectoryCloud)
+		{
+			tool->setTrajectoryCloud(trajectoryCloud);
+			appInterface->dispToConsole(
+				QString("[FFD] Associated trajectory: %1 (%2 points)")
+					.arg(trajectoryCloud->getName())
+					.arg(trajectoryCloud->size()),
+				ccMainAppInterface::STD_CONSOLE_MESSAGE);
+		}
+
 		tool->setLattice(lattice, latticeDisplay);
 		FFD_DEBUG("performDeformation: lattice set");
 

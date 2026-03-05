@@ -1,6 +1,8 @@
 #include "FFDLatticeParamsDlg.h"
 #include "FFDLattice.h"
 
+#include <ccPointCloud.h>
+
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -72,6 +74,15 @@ FFDLatticeParamsDlg::FFDLatticeParamsDlg(QWidget* parent)
 		m_spinPreviewPoints->setValue(type == DeformationType::BSpline ? 15000 : 50000);
 	});
 	
+	// Trajectory selection
+	auto* trajLayout = new QHBoxLayout();
+	trajLayout->addWidget(new QLabel("Trajectory:", this));
+	m_trajectoryCombo = new QComboBox(this);
+	m_trajectoryCombo->addItem("(None)");
+	m_trajectoryCombo->setToolTip("Optional trajectory point cloud to deform together with the main cloud.");
+	trajLayout->addWidget(m_trajectoryCombo);
+	mainLayout->addLayout(trajLayout);
+
 	// Info label
 	auto* infoLabel = new QLabel("Total control points will be X × Y × Z", this);
 	infoLabel->setStyleSheet("color: gray; font-size: 10pt;");
@@ -117,4 +128,26 @@ DeformationType FFDLatticeParamsDlg::getDeformationType() const
 size_t FFDLatticeParamsDlg::getPreviewPointCount() const
 {
 	return static_cast<size_t>(m_spinPreviewPoints->value());
+}
+
+void FFDLatticeParamsDlg::setAvailableTrajectories(const std::vector<ccPointCloud*>& clouds, ccPointCloud* excludeCloud)
+{
+	m_trajectories.clear();
+	// Index 0 is always "(None)"
+	for (ccPointCloud* cloud : clouds)
+	{
+		if (cloud && cloud != excludeCloud)
+		{
+			m_trajectories.push_back(cloud);
+			m_trajectoryCombo->addItem(cloud->getName());
+		}
+	}
+}
+
+ccPointCloud* FFDLatticeParamsDlg::getSelectedTrajectory() const
+{
+	int idx = m_trajectoryCombo->currentIndex();
+	if (idx <= 0 || idx > static_cast<int>(m_trajectories.size()))
+		return nullptr;
+	return m_trajectories[idx - 1]; // -1 because index 0 is "(None)"
 }

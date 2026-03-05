@@ -23,6 +23,9 @@ public:
 
     void setLattice(FFDLattice* lattice, ccFFDLatticeDisplay* display);
 
+    //! Set an optional trajectory cloud that deforms together with the main cloud
+    void setTrajectoryCloud(ccPointCloud* trajectoryCloud);
+
     bool start() override;
     void stop(bool accepted) override;
 
@@ -51,6 +54,8 @@ private:
     ccSelectionRectangle* m_selectionRect = nullptr;    // Visual rectangle for multi-selection
     ccFFDDeformationApplier* m_previewApplier = nullptr;      // Applies FFD to preview cloud
     ccFFDDeformationApplier* m_fullApplier = nullptr;         // Applies FFD to full cloud on Apply
+    ccPointCloud* m_trajectoryCloud = nullptr;                // Optional associated trajectory cloud
+    ccFFDDeformationApplier* m_trajectoryApplier = nullptr;   // Applies FFD to trajectory cloud
 
     int m_selectedPointIndex = -1;                      // Index of selected control point (-1 = none)
     std::vector<int> m_selectedPointIndices;            // Multiple selected control points

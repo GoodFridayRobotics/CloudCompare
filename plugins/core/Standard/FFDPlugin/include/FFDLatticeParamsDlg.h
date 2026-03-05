@@ -4,7 +4,10 @@
 #include <QSpinBox>
 #include <QComboBox>
 #include <array>
+#include <vector>
 
+class ccHObject;
+class ccPointCloud;
 enum class DeformationType;
 
 class FFDLatticeParamsDlg : public QDialog
@@ -14,9 +17,14 @@ class FFDLatticeParamsDlg : public QDialog
 public:
 	explicit FFDLatticeParamsDlg(QWidget* parent = nullptr);
 	
+	//! Populate the trajectory combo with available point clouds from the DB tree
+	void setAvailableTrajectories(const std::vector<ccPointCloud*>& clouds, ccPointCloud* excludeCloud = nullptr);
+
 	std::array<unsigned int, 3> getLatticeSize() const;
 	DeformationType getDeformationType() const;
 	size_t getPreviewPointCount() const;
+	//! Returns the selected trajectory cloud (nullptr if "None" is selected)
+	ccPointCloud* getSelectedTrajectory() const;
 
 private:
 	QSpinBox* m_spinX;
@@ -24,4 +32,6 @@ private:
 	QSpinBox* m_spinZ;
 	QComboBox* m_deformTypeCombo;
 	QSpinBox* m_spinPreviewPoints;
+	QComboBox* m_trajectoryCombo;
+	std::vector<ccPointCloud*> m_trajectories;
 };

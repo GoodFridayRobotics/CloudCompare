@@ -38,6 +38,11 @@ ccFFDDeformationTool::ccFFDDeformationTool(ccPointCloud* originalCloud, ccPointC
     connect(this, &ccOverlayDialog::shortcutTriggered, this, &ccFFDDeformationTool::onShortcutTriggered);
 }
 
+void ccFFDDeformationTool::setTrajectoryCloud(ccPointCloud* trajectoryCloud)
+{
+    m_trajectoryCloud = trajectoryCloud;
+}
+
 ccFFDDeformationTool::~ccFFDDeformationTool()
 {
     FFD_DEBUG("DESTRUCTOR: ccFFDDeformationTool being destroyed, this=" << this);
@@ -50,6 +55,12 @@ ccFFDDeformationTool::~ccFFDDeformationTool()
         delete m_selectionRect;
         m_selectionRect = nullptr;
         FFD_DEBUG("  m_selectionRect deleted");
+    }
+    if (m_trajectoryApplier)
+    {
+        FFD_DEBUG("  Deleting m_trajectoryApplier...");
+        delete m_trajectoryApplier;
+        m_trajectoryApplier = nullptr;
     }
     if (m_previewApplier)
     {
@@ -108,6 +119,19 @@ void ccFFDDeformationTool::setLattice(FFDLattice* lattice, ccFFDLatticeDisplay* 
     {
         m_fullApplier->initializeOriginalPositions();
         m_fullApplier->setSubsampleRatio(1.0f);
+    }
+
+    // Initialize trajectory applier if a trajectory cloud is set
+    if (m_trajectoryCloud)
+    {
+        if (m_trajectoryApplier)
+            delete m_trajectoryApplier;
+        m_trajectoryApplier = new ccFFDDeformationApplier(m_trajectoryCloud, m_lattice);
+        if (m_trajectoryApplier)
+        {
+            m_trajectoryApplier->initializeOriginalPositions();
+            m_trajectoryApplier->setSubsampleRatio(1.0f);
+        }
     }
 
     if (m_previewCloud && m_appInterface)
@@ -583,6 +607,12 @@ void ccFFDDeformationTool::onShortcutTriggered(int key)
             m_fullApplier->applyDeformation();
             m_appInterface->dispToConsole("[FFD] Deformation applied to full cloud", ccMainAppInterface::STD_CONSOLE_MESSAGE);
         }
+        // Apply deformation to trajectory cloud
+        if (m_trajectoryApplier)
+        {
+            m_trajectoryApplier->applyDeformation();
+            m_appInterface->dispToConsole("[FFD] Deformation applied to trajectory", ccMainAppInterface::STD_CONSOLE_MESSAGE);
+        }
         // Keep preview in sync for continued editing
         if (m_previewApplier)
         {
@@ -604,6 +634,10 @@ void ccFFDDeformationTool::onShortcutTriggered(int key)
         if (m_fullApplier)
         {
             m_fullApplier->resetDeformation();
+        }
+        if (m_trajectoryApplier)
+        {
+            m_trajectoryApplier->resetDeformation();
         }
         if (m_lattice)
         {
@@ -873,6 +907,12 @@ void ccFFDDeformationTool::updateCloudDeformation()
         return;
 
     m_previewApplier->updateDeformedCloud();
+
+    // Also update trajectory cloud if present
+    if (m_trajectoryApplier)
+    {
+        m_trajectoryApplier->updateDeformedCloud();
+    }
 }
 
 void ccFFDDeformationTool::pushLatticeHistory()
@@ -915,6 +955,10 @@ void ccFFDDeformationTool::undoLastTransformation()
     if (m_previewApplier)
     {
         m_previewApplier->updateDeformedCloud();
+    }
+    if (m_trajectoryApplier)
+    {
+        m_trajectoryApplier->updateDeformedCloud();
     }
     
     if (m_associatedWin)
