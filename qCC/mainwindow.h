@@ -180,6 +180,9 @@ class MainWindow : public QMainWindow
 	 **/
 	void addEditPlaneAction(QMenu& menu) const;
 
+	//! Let plugins add context menu actions for the selected entities in the DB tree
+	void addPluginContextMenuActions(QMenu& menu, const ccHObject::Container& selectedEntities) const;
+
 	//! Sets up the UI (menus and toolbars) based on loaded plugins
 	void initPlugins();
 

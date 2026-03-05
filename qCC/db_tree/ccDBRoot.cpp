@@ -2472,6 +2472,18 @@ void ccDBRoot::showContextMenu(const QPoint& menuPos)
 			menu.addSeparator();
 		}
 
+		// Let plugins contribute context menu actions
+		{
+			ccHObject::Container selectedItems;
+			for (int i = 0; i < selCount; ++i)
+			{
+				ccHObject* item = static_cast<ccHObject*>(selectedIndexes[i].internalPointer());
+				if (item)
+					selectedItems.push_back(item);
+			}
+			MainWindow::TheInstance()->addPluginContextMenuActions(menu, selectedItems);
+		}
+
 		menu.addAction(m_expandBranch);
 		menu.addAction(m_collapseBranch);
 	}

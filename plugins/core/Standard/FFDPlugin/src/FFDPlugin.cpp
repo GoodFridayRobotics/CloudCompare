@@ -16,6 +16,7 @@
 
 #include "FFDPlugin.h"
 #include "FFDAction.h"
+#include "ccFFDLatticeDisplay.h"
 
 #include <QtGui>
 
@@ -23,6 +24,7 @@ FFDPlugin::FFDPlugin( QObject *parent )
 	: QObject( parent )
 	, ccStdPluginInterface( ":/CC/plugin/FFDPlugin/info.json" )
 	, m_deformAction( nullptr )
+	, m_editLatticeAction( nullptr )
 {
 	createAction();
 }
@@ -39,6 +41,17 @@ void FFDPlugin::createAction()
 		{
 			// Forward to the action handler
 			FFDAction::performDeformation( m_app );
+		} );
+	}
+
+	if ( m_editLatticeAction == nullptr )
+	{
+		m_editLatticeAction = new QAction( "Edit FFD Lattice", this );
+		m_editLatticeAction->setStatusTip( "Edit the selected FFD lattice parameters" );
+
+		connect( m_editLatticeAction, &QAction::triggered, this, [this]()
+		{
+			FFDAction::editLattice( m_app );
 		} );
 	}
 }
@@ -68,4 +81,20 @@ void FFDPlugin::onNewSelection( const ccHObject::Container &selectedEntities )
 QList<QAction*> FFDPlugin::getActions()
 {
 	return { m_deformAction };
+}
+
+QList<QAction*> FFDPlugin::getEntityContextMenuActions(const ccHObject::Container &selectedEntities)
+{
+	QList<QAction*> actions;
+
+	for ( ccHObject *entity : selectedEntities )
+	{
+		if ( ccFFDLatticeDisplay::IsFFDLatticeDisplay(entity) )
+		{
+			actions << m_editLatticeAction;
+			break;
+		}
+	}
+
+	return actions;
 }

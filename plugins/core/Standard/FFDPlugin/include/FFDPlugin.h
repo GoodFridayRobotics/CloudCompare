@@ -34,9 +34,11 @@ public:
 	// ccStdPluginInterface methods
 	void onNewSelection( const ccHObject::Container &selectedEntities ) override;
 	QList<QAction*> getActions() override;
+	QList<QAction*> getEntityContextMenuActions(const ccHObject::Container &selectedEntities) override;
 
 private:
 	void createAction();
 
 	QAction *m_deformAction = nullptr;
+	QAction *m_editLatticeAction = nullptr;
 };

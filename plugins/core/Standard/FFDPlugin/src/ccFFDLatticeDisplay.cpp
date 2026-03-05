@@ -7,14 +7,23 @@
 ccFFDLatticeDisplay::ccFFDLatticeDisplay(const ccBBox& bbox,
 	                                     const std::array<unsigned int, 3>& dims,
 	                                     const std::vector<CCVector3d>& controlPoints)
-	: ccHObject("FFD Lattice")
+	: ccCustomHObject("FFD Lattice")
 	, m_bbox(bbox)
 	, m_dims(dims)
 	, m_controlPoints(controlPoints)
 {
+	setMetaData(ccCustomHObject::DefaultMetaDataClassName(), MetaDataClassName());
+	setMetaData(ccCustomHObject::DefaultMetaDataPluginName(), "FFDPlugin");
 	setVisible(true);
 	setEnabled(true);
 	updateBoundingBox();
+}
+
+bool ccFFDLatticeDisplay::IsFFDLatticeDisplay(const ccHObject* entity)
+{
+	if (!entity || !entity->isA(CC_TYPES::CUSTOM_H_OBJECT))
+		return false;
+	return entity->getMetaData(ccCustomHObject::DefaultMetaDataClassName()).toString() == MetaDataClassName();
 }
 
 ccBBox ccFFDLatticeDisplay::getOwnBB(bool /*withGLFeatures*/)
@@ -31,6 +40,13 @@ void ccFFDLatticeDisplay::setControlPoints(const std::vector<CCVector3d>& contro
 void ccFFDLatticeDisplay::setSelectedIndices(const std::vector<int>& indices)
 {
 	m_selectedIndices = indices;
+}
+
+void ccFFDLatticeDisplay::setLatticeConfig(double rotationDeg, int deformType, unsigned int originalCloudUniqueID)
+{
+	m_rotationDeg = rotationDeg;
+	m_deformType = deformType;
+	m_originalCloudUniqueID = originalCloudUniqueID;
 }
 
 void ccFFDLatticeDisplay::updateBoundingBox()

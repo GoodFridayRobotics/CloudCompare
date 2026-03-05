@@ -58,6 +58,9 @@ class ccPluginUIManager : public QObject
 
 	void showAboutDialog() const;
 
+	//! Returns the list of loaded plugins
+	const QList<ccPluginInterface*>& plugins() const { return m_plugins; }
+
   private:
 	void setupActions();
 

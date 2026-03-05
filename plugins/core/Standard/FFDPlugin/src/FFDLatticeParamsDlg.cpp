@@ -1,7 +1,9 @@
 #include "FFDLatticeParamsDlg.h"
 #include "FFDLattice.h"
+#include "ccFFDLatticeDisplay.h"
 
 #include <ccPointCloud.h>
+#include <ccGLWindowInterface.h>
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -74,6 +76,18 @@ FFDLatticeParamsDlg::FFDLatticeParamsDlg(QWidget* parent)
 		m_spinPreviewPoints->setValue(type == DeformationType::BSpline ? 15000 : 50000);
 	});
 	
+	// Z rotation
+	auto* rotLayout = new QHBoxLayout();
+	rotLayout->addWidget(new QLabel("Rotation Z (°):", this));
+	m_spinRotationZ = new QDoubleSpinBox(this);
+	m_spinRotationZ->setRange(-180.0, 180.0);
+	m_spinRotationZ->setSingleStep(1.0);
+	m_spinRotationZ->setDecimals(1);
+	m_spinRotationZ->setValue(0.0);
+	m_spinRotationZ->setToolTip("Rotate the lattice around the Z axis (degrees).");
+	rotLayout->addWidget(m_spinRotationZ);
+	mainLayout->addLayout(rotLayout);
+
 	// Trajectory selection
 	auto* trajLayout = new QHBoxLayout();
 	trajLayout->addWidget(new QLabel("Trajectory:", this));
@@ -109,6 +123,12 @@ FFDLatticeParamsDlg::FFDLatticeParamsDlg(QWidget* parent)
 	connect(m_spinZ, QOverload<int>::of(&QSpinBox::valueChanged), updateInfo);
 	
 	updateInfo();
+
+	// Connect lattice-affecting parameters to live preview update
+	connect(m_spinX, QOverload<int>::of(&QSpinBox::valueChanged), this, &FFDLatticeParamsDlg::updateLatticePreview);
+	connect(m_spinY, QOverload<int>::of(&QSpinBox::valueChanged), this, &FFDLatticeParamsDlg::updateLatticePreview);
+	connect(m_spinZ, QOverload<int>::of(&QSpinBox::valueChanged), this, &FFDLatticeParamsDlg::updateLatticePreview);
+	connect(m_spinRotationZ, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &FFDLatticeParamsDlg::updateLatticePreview);
 }
 
 std::array<unsigned int, 3> FFDLatticeParamsDlg::getLatticeSize() const
@@ -128,6 +148,11 @@ DeformationType FFDLatticeParamsDlg::getDeformationType() const
 size_t FFDLatticeParamsDlg::getPreviewPointCount() const
 {
 	return static_cast<size_t>(m_spinPreviewPoints->value());
+}
+
+double FFDLatticeParamsDlg::getRotationZ() const
+{
+	return m_spinRotationZ->value();
 }
 
 void FFDLatticeParamsDlg::setAvailableTrajectories(const std::vector<ccPointCloud*>& clouds, ccPointCloud* excludeCloud)
@@ -150,4 +175,64 @@ ccPointCloud* FFDLatticeParamsDlg::getSelectedTrajectory() const
 	if (idx <= 0 || idx > static_cast<int>(m_trajectories.size()))
 		return nullptr;
 	return m_trajectories[idx - 1]; // -1 because index 0 is "(None)"
+}
+
+void FFDLatticeParamsDlg::setInitialValues(const std::array<unsigned int, 3>& dims, int deformType, double rotationZ)
+{
+	m_spinX->setValue(static_cast<int>(dims[0]));
+	m_spinY->setValue(static_cast<int>(dims[1]));
+	m_spinZ->setValue(static_cast<int>(dims[2]));
+	m_deformTypeCombo->setCurrentIndex(deformType);
+	m_spinRotationZ->setValue(rotationZ);
+}
+
+FFDLatticeParamsDlg::~FFDLatticeParamsDlg()
+{
+	removeLatticePreview();
+}
+
+void FFDLatticeParamsDlg::setPreviewContext(const ccBBox& bbox, ccGLWindowInterface* win)
+{
+	m_previewBBox = bbox;
+	m_glWindow = win;
+
+	// Show initial preview with default parameters
+	updateLatticePreview();
+}
+
+void FFDLatticeParamsDlg::updateLatticePreview()
+{
+	if (!m_glWindow || !m_previewBBox.isValid())
+		return;
+
+	std::array<unsigned int, 3> dims = getLatticeSize();
+	double rotZ = getRotationZ();
+
+	// Build a temporary lattice to compute control point positions
+	FFDLattice tmpLattice(dims, m_previewBBox, rotZ);
+
+	// If dimensions changed we must recreate the display (it stores dims for grid drawing)
+	if (m_previewDisplay)
+	{
+		m_glWindow->removeFromOwnDB(m_previewDisplay);
+		// removeFromOwnDB deletes the object
+		m_previewDisplay = nullptr;
+	}
+
+	m_previewDisplay = new ccFFDLatticeDisplay(m_previewBBox, dims, tmpLattice.getAllControlPoints());
+	m_previewDisplay->setName("FFD Lattice Preview");
+	m_glWindow->addToOwnDB(m_previewDisplay, false);
+
+	m_glWindow->redraw(false, false);
+}
+
+void FFDLatticeParamsDlg::removeLatticePreview()
+{
+	if (m_previewDisplay && m_glWindow)
+	{
+		m_glWindow->removeFromOwnDB(m_previewDisplay);
+		// removeFromOwnDB deletes the object
+		m_previewDisplay = nullptr;
+		m_glWindow->redraw(false, false);
+	}
 }

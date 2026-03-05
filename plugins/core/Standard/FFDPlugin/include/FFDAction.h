@@ -28,6 +28,14 @@ namespace FFDAction
 	 * \param appInterface the main application interface
 	 */
 	void performDeformation( ccMainAppInterface *appInterface );
+
+	//! Edit an existing FFD lattice
+	/*!
+	 * Called when the user right-clicks on a lattice display entity and selects Edit.
+	 * Reopens the parameter dialog with current values and re-creates the lattice.
+	 * \param appInterface the main application interface
+	 */
+	void editLattice( ccMainAppInterface *appInterface );
 }
 
 #endif // FFD_ACTION_HEADER

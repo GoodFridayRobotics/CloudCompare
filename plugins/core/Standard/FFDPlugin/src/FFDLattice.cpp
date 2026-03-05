@@ -18,10 +18,24 @@
 #include <cmath>
 #include <algorithm>
 
-FFDLattice::FFDLattice( const std::array<unsigned int, 3> &latticeSize, const ccBBox &boundingBox )
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+FFDLattice::FFDLattice( const std::array<unsigned int, 3> &latticeSize, const ccBBox &boundingBox, double rotationDeg )
 	: m_latticeSize( latticeSize )
 	, m_boundingBox( boundingBox )
+	, m_rotationDeg( rotationDeg )
 {
+	// Precompute rotation
+	double rotationRad = rotationDeg * M_PI / 180.0;
+	m_cosR = std::cos(rotationRad);
+	m_sinR = std::sin(rotationRad);
+
+	// Pivot = bounding box center
+	CCVector3 bbCenter = boundingBox.getCenter();
+	m_center = CCVector3d(bbCenter.x, bbCenter.y, bbCenter.z);
+
 	// Calculate the size of each cell
 	CCVector3 bbSize = boundingBox.maxCorner() - boundingBox.minCorner();
 	m_cellSize = CCVector3d(
@@ -30,7 +44,7 @@ FFDLattice::FFDLattice( const std::array<unsigned int, 3> &latticeSize, const cc
 		bbSize.z / (latticeSize[2] - 1.0)
 	);
 
-	// Initialize control points in a regular grid
+	// Initialize control points in a regular grid and rotate them into world frame
 	size_t totalPoints = latticeSize[0] * latticeSize[1] * latticeSize[2];
 	m_controlPoints.reserve( totalPoints );
 	m_originalControlPoints.reserve( totalPoints );
@@ -43,11 +57,14 @@ FFDLattice::FFDLattice( const std::array<unsigned int, 3> &latticeSize, const cc
 		{
 			for ( unsigned int x = 0; x < latticeSize[0]; ++x )
 			{
-				CCVector3d controlPoint(
+				// Local (unrotated) position
+				CCVector3d localPt(
 					minCorner.x + x * m_cellSize.x,
 					minCorner.y + y * m_cellSize.y,
 					minCorner.z + z * m_cellSize.z
 				);
+				// Rotate into world frame around the BB center
+				CCVector3d controlPoint = rotateToWorld(localPt - m_center) + m_center;
 				m_controlPoints.push_back( controlPoint );
 				m_originalControlPoints.push_back( controlPoint );
 			}
@@ -148,11 +165,14 @@ CCVector3d FFDLattice::deformPoint( const CCVector3d &originalPoint ) const
 
 CCVector3d FFDLattice::deformPointLinear( const CCVector3d &originalPoint ) const
 {
+	// Rotate the point into the lattice-local frame
+	CCVector3d localPoint = rotateToLocal(originalPoint - m_center) + m_center;
+
 	// Compute normalized coordinates within the bounding box [0, 1]
 	CCVector3 bbMin = m_boundingBox.minCorner();
 	CCVector3 bbMax = m_boundingBox.maxCorner();
 
-	CCVector3d pointRelative = originalPoint - CCVector3d(bbMin.x, bbMin.y, bbMin.z);
+	CCVector3d pointRelative = localPoint - CCVector3d(bbMin.x, bbMin.y, bbMin.z);
 	CCVector3d bbSize = CCVector3d(bbMax.x - bbMin.x, bbMax.y - bbMin.y, bbMax.z - bbMin.z);
 
 	double u = std::clamp(pointRelative.x / bbSize.x, 0.0, 1.0);
@@ -214,11 +234,14 @@ CCVector3d FFDLattice::deformPointLinear( const CCVector3d &originalPoint ) cons
 
 CCVector3d FFDLattice::deformPointBSpline( const CCVector3d &originalPoint ) const
 {
+	// Rotate the point into the lattice-local frame
+	CCVector3d localPoint = rotateToLocal(originalPoint - m_center) + m_center;
+
 	// Compute normalized coordinates within the bounding box [0, 1]
 	CCVector3 bbMin = m_boundingBox.minCorner();
 	CCVector3 bbMax = m_boundingBox.maxCorner();
 	
-	CCVector3d pointRelative = originalPoint - CCVector3d(bbMin.x, bbMin.y, bbMin.z);
+	CCVector3d pointRelative = localPoint - CCVector3d(bbMin.x, bbMin.y, bbMin.z);
 	CCVector3d bbSize = CCVector3d(bbMax.x - bbMin.x, bbMax.y - bbMin.y, bbMax.z - bbMin.z);
 
 	double u = std::clamp(pointRelative.x / bbSize.x, 0.0, 1.0);
@@ -295,4 +318,24 @@ CCVector3d FFDLattice::deformPointBSpline( const CCVector3d &originalPoint ) con
 	}
 
 	return originalPoint + resultZ;
+}
+
+CCVector3d FFDLattice::rotateToLocal( const CCVector3d &point ) const
+{
+	// Inverse rotation around Z: rotate by -angle (cos is even, sin changes sign)
+	return CCVector3d(
+		 m_cosR * point.x + m_sinR * point.y,
+		-m_sinR * point.x + m_cosR * point.y,
+		 point.z
+	);
+}
+
+CCVector3d FFDLattice::rotateToWorld( const CCVector3d &vec ) const
+{
+	// Forward rotation around Z by angle
+	return CCVector3d(
+		m_cosR * vec.x - m_sinR * vec.y,
+		m_sinR * vec.x + m_cosR * vec.y,
+		vec.z
+	);
 }

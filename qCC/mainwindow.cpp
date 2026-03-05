@@ -137,6 +137,7 @@
 #include "ccUtils.h"
 #include "db_tree/ccDBRoot.h"
 #include "pluginManager/ccPluginUIManager.h"
+#include <ccStdPluginInterface.h>
 
 // 3D mouse handler
 #ifdef CC_3DXWARE_SUPPORT
@@ -11826,6 +11827,34 @@ ccDBRoot* MainWindow::db()
 void MainWindow::addEditPlaneAction(QMenu& menu) const
 {
 	menu.addAction(m_UI->actionEditPlane);
+}
+
+void MainWindow::addPluginContextMenuActions(QMenu& menu, const ccHObject::Container& selectedEntities) const
+{
+	if (!m_pluginUIManager)
+		return;
+
+	bool separatorAdded = false;
+	for (ccPluginInterface* plugin : m_pluginUIManager->plugins())
+	{
+		if (plugin && plugin->getType() == CC_STD_PLUGIN)
+		{
+			ccStdPluginInterface* stdPlugin = static_cast<ccStdPluginInterface*>(plugin);
+			QList<QAction*> actions = stdPlugin->getEntityContextMenuActions(selectedEntities);
+			if (!actions.isEmpty())
+			{
+				if (!separatorAdded)
+				{
+					menu.addSeparator();
+					separatorAdded = true;
+				}
+				for (QAction* action : actions)
+				{
+					menu.addAction(action);
+				}
+			}
+		}
+	}
 }
 
 ccHObject* MainWindow::dbRootObject()

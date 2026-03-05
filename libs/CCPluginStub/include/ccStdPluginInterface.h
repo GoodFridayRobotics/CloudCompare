@@ -92,6 +92,17 @@ class ccStdPluginInterface : public ccDefaultPluginInterface
 	{ /*ignored by default*/
 	}
 
+	//! Called when the user right-clicks on entities in the DB tree
+	/** Override to add plugin-specific context menu actions for selected entities.
+	    \param selectedEntities currently selected entities
+	    \return list of actions to add to the context menu (can be empty)
+	**/
+	virtual QList<QAction*> getEntityContextMenuActions(const ccHObject::Container& selectedEntities)
+	{
+		Q_UNUSED(selectedEntities);
+		return {};
+	}
+
 	//! Shortcut to ccMainAppInterface::dispToConsole
 	inline virtual void dispToConsole(const QString& message, ccMainAppInterface::ConsoleMessageLevel level = ccMainAppInterface::STD_CONSOLE_MESSAGE)
 	{

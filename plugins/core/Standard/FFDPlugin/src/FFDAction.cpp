@@ -38,6 +38,22 @@ namespace FFDAction
 	// Track the currently active FFD tool to prevent duplicates
 	static ccFFDDeformationTool* s_activeTool = nullptr;
 
+	//! Find an object by unique ID in the DB tree
+	static ccHObject* findByUniqueID(ccHObject* root, unsigned int uniqueID)
+	{
+		if (!root)
+			return nullptr;
+		if (root->getUniqueID() == uniqueID)
+			return root;
+		for (unsigned i = 0; i < root->getChildrenNumber(); ++i)
+		{
+			ccHObject* found = findByUniqueID(root->getChild(i), uniqueID);
+			if (found)
+				return found;
+		}
+		return nullptr;
+	}
+
 	void performDeformation( ccMainAppInterface *appInterface )
 	{
 		if ( appInterface == nullptr )
@@ -87,6 +103,13 @@ namespace FFDAction
 		// Show dialog to get lattice parameters
 		FFDLatticeParamsDlg paramsDlg(nullptr);
 
+		// Set up live lattice preview in the 3D view
+		ccGLWindowInterface* win = appInterface->getActiveGLWindow();
+		if (win)
+		{
+			paramsDlg.setPreviewContext(cloud->getOwnBB(), win);
+		}
+
 		// Collect available point clouds from DB tree for trajectory selection
 		{
 			ccHObject* dbRoot = appInterface->dbRootObject();
@@ -114,8 +137,9 @@ namespace FFDAction
 		// Create the FFD lattice with user-specified dimensions
 		std::array<unsigned int, 3> latticeSize = paramsDlg.getLatticeSize();
 		DeformationType deformType = paramsDlg.getDeformationType();
+		double rotationZ = paramsDlg.getRotationZ();
 		ccPointCloud* trajectoryCloud = paramsDlg.getSelectedTrajectory();
-		FFDLattice* lattice = new FFDLattice(latticeSize, cloud->getOwnBB());
+		FFDLattice* lattice = new FFDLattice(latticeSize, cloud->getOwnBB(), rotationZ);
 		lattice->setDeformationType(deformType);
 
 		// Create a subsampled preview cloud for smooth interactive updates
@@ -151,6 +175,7 @@ namespace FFDAction
 		// Visualize lattice
 		ccFFDLatticeDisplay* latticeDisplay = new ccFFDLatticeDisplay(cloud->getOwnBB(), latticeSize, lattice->getAllControlPoints());
 		latticeDisplay->setName("FFD Lattice");
+		latticeDisplay->setLatticeConfig(rotationZ, static_cast<int>(deformType), cloud->getUniqueID());
 
 		// Create a group entity to host the preview and lattice
 		ccHObject* ffdGroup = new ccHObject("FFD");
@@ -194,7 +219,10 @@ namespace FFDAction
 		tool->setLattice(lattice, latticeDisplay);
 		FFD_DEBUG("performDeformation: lattice set");
 
-		ccGLWindowInterface* win = appInterface->getActiveGLWindow();
+		if (!win)
+		{
+			win = appInterface->getActiveGLWindow();
+		}
 		if (!win)
 		{
 			appInterface->dispToConsole( "[FFD] No active 3D window", ccMainAppInterface::ERR_CONSOLE_MESSAGE );
@@ -221,5 +249,183 @@ namespace FFDAction
 									  ccMainAppInterface::STD_CONSOLE_MESSAGE );
 
 		/*** HERE ENDS THE ACTION ***/
+	}
+
+	void editLattice( ccMainAppInterface *appInterface )
+	{
+		if ( !appInterface )
+			return;
+
+		// Stop any existing FFD tool first
+		if (s_activeTool)
+		{
+			s_activeTool->stop(false);
+			s_activeTool->deleteLater();
+			s_activeTool = nullptr;
+		}
+
+		// Find the selected FFD lattice display
+		ccHObject::Container selectedEntities = appInterface->getSelectedEntities();
+		ccFFDLatticeDisplay* latticeDisplay = nullptr;
+		for ( ccHObject *entity : selectedEntities )
+		{
+			if ( ccFFDLatticeDisplay::IsFFDLatticeDisplay(entity) )
+			{
+				latticeDisplay = static_cast<ccFFDLatticeDisplay*>(entity);
+				break;
+			}
+		}
+		if ( !latticeDisplay )
+		{
+			appInterface->dispToConsole("[FFD] No FFD lattice display selected", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+			return;
+		}
+
+		// Look up the original cloud by unique ID
+		unsigned int cloudUID = latticeDisplay->getOriginalCloudUniqueID();
+		ccHObject* dbRoot = appInterface->dbRootObject();
+		ccHObject* foundObj = findByUniqueID(dbRoot, cloudUID);
+		ccPointCloud* cloud = foundObj ? ccHObjectCaster::ToPointCloud(foundObj) : nullptr;
+		if ( !cloud )
+		{
+			appInterface->dispToConsole("[FFD] Original point cloud not found in DB", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+			return;
+		}
+
+		// Read current lattice configuration
+		std::array<unsigned int, 3> oldDims = latticeDisplay->getDims();
+		double oldRotation = latticeDisplay->getRotationDeg();
+		int oldDeformType = latticeDisplay->getDeformType();
+
+		// Open dialog pre-filled with current values
+		FFDLatticeParamsDlg paramsDlg(nullptr);
+		paramsDlg.setInitialValues(oldDims, oldDeformType, oldRotation);
+
+		ccGLWindowInterface* win = appInterface->getActiveGLWindow();
+		if (win)
+		{
+			paramsDlg.setPreviewContext(cloud->getOwnBB(), win);
+		}
+
+		// Collect available point clouds for trajectory selection
+		{
+			ccHObject::Container pointClouds;
+			if (dbRoot)
+				dbRoot->filterChildren(pointClouds, true, CC_TYPES::POINT_CLOUD, true);
+			std::vector<ccPointCloud*> candidates;
+			for (ccHObject* entity : pointClouds)
+			{
+				ccPointCloud* pc = ccHObjectCaster::ToPointCloud(entity);
+				if (pc)
+					candidates.push_back(pc);
+			}
+			paramsDlg.setAvailableTrajectories(candidates, cloud);
+		}
+
+		if (paramsDlg.exec() != QDialog::Accepted)
+		{
+			appInterface->dispToConsole("[FFD] Edit cancelled", ccMainAppInterface::WRN_CONSOLE_MESSAGE);
+			return;
+		}
+
+		// Get new parameters
+		std::array<unsigned int, 3> latticeSize = paramsDlg.getLatticeSize();
+		DeformationType deformType = paramsDlg.getDeformationType();
+		double rotationZ = paramsDlg.getRotationZ();
+		ccPointCloud* trajectoryCloud = paramsDlg.getSelectedTrajectory();
+
+		// Remove the old FFD group (parent of lattice display)
+		ccHObject* ffdGroup = latticeDisplay->getParent();
+
+		// Create new lattice
+		FFDLattice* lattice = new FFDLattice(latticeSize, cloud->getOwnBB(), rotationZ);
+		lattice->setDeformationType(deformType);
+
+		// Create new subsampled preview cloud
+		size_t fullSize = cloud->size();
+		size_t targetPreviewSize = paramsDlg.getPreviewPointCount();
+		size_t step = (fullSize > targetPreviewSize && targetPreviewSize > 0) ? (fullSize / targetPreviewSize) : 1;
+		step = std::max<size_t>(step, 1);
+
+		CCCoreLib::ReferenceCloud previewRef(cloud);
+		previewRef.reserve(static_cast<unsigned>(fullSize / step + 1));
+		for (size_t i = 0; i < fullSize; i += step)
+		{
+			previewRef.addPointIndex(static_cast<unsigned>(i));
+		}
+
+		ccPointCloud* previewCloud = cloud->partialClone(&previewRef);
+		if (!previewCloud)
+		{
+			previewCloud = new ccPointCloud("FFD Preview");
+			previewCloud->reserve(previewRef.size());
+			for (unsigned i = 0; i < previewRef.size(); ++i)
+			{
+				const CCVector3* P = cloud->getPoint(previewRef.getPointGlobalIndex(i));
+				previewCloud->addPoint(*P);
+			}
+		}
+		previewCloud->setName(QString("%1 (FFD Preview)").arg(cloud->getName()));
+		previewCloud->setVisible(true);
+		previewCloud->setEnabled(true);
+		previewCloud->setPointSize(cloud->getPointSize());
+
+		// Create new lattice display
+		ccFFDLatticeDisplay* newLatticeDisplay = new ccFFDLatticeDisplay(cloud->getOwnBB(), latticeSize, lattice->getAllControlPoints());
+		newLatticeDisplay->setName("FFD Lattice");
+		newLatticeDisplay->setLatticeConfig(rotationZ, static_cast<int>(deformType), cloud->getUniqueID());
+
+		// Remove old group from DB and add new one
+		if (ffdGroup)
+		{
+			appInterface->removeFromDB(ffdGroup);
+		}
+
+		ccHObject* newGroup = new ccHObject("FFD");
+		newGroup->addChild(previewCloud);
+		newGroup->addChild(newLatticeDisplay);
+		appInterface->addToDB(newGroup, false, true, false, true);
+
+		// Create and setup the interactive deformation tool
+		ccFFDDeformationTool* tool = new ccFFDDeformationTool(cloud, previewCloud, appInterface);
+		s_activeTool = tool;
+
+		if (trajectoryCloud)
+		{
+			tool->setTrajectoryCloud(trajectoryCloud);
+			appInterface->dispToConsole(
+				QString("[FFD] Associated trajectory: %1 (%2 points)")
+					.arg(trajectoryCloud->getName())
+					.arg(trajectoryCloud->size()),
+				ccMainAppInterface::STD_CONSOLE_MESSAGE);
+		}
+
+		tool->setLattice(lattice, newLatticeDisplay);
+
+		if (!win)
+			win = appInterface->getActiveGLWindow();
+		if (!win)
+		{
+			appInterface->dispToConsole("[FFD] No active 3D window", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+			delete tool;
+			return;
+		}
+
+		tool->linkWith(win);
+		tool->start();
+
+		QObject::connect(tool, &ccOverlayDialog::processFinished, [tool](bool)
+		{
+			if (s_activeTool == tool)
+				s_activeTool = nullptr;
+			tool->deleteLater();
+		});
+
+		appInterface->dispToConsole(
+			QString("[FFD] Lattice edited: %1x%2x%3, rotation %.1f°")
+				.arg(latticeSize[0]).arg(latticeSize[1]).arg(latticeSize[2]).arg(rotationZ),
+			ccMainAppInterface::STD_CONSOLE_MESSAGE);
+
+		appInterface->refreshAll();
 	}
 }

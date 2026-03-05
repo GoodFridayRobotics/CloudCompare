@@ -43,8 +43,9 @@ public:
 	/*!
 	 * \param latticeSize number of control points in each dimension (X, Y, Z)
 	 * \param boundingBox the bounding box of the point cloud
+	 * \param rotationDeg rotation of the lattice around the Z axis in degrees (default 0)
 	 */
-	FFDLattice( const std::array<unsigned int, 3> &latticeSize, const ccBBox &boundingBox );
+	FFDLattice( const std::array<unsigned int, 3> &latticeSize, const ccBBox &boundingBox, double rotationDeg = 0.0 );
 
 	//! Destructor
 	virtual ~FFDLattice() = default;
@@ -113,14 +114,25 @@ private:
 	//! Recompute the displacement cache from current and original control points
 	void updateDisplacementCache();
 
+	//! Rotate a point from world coordinates into the lattice-local frame
+	CCVector3d rotateToLocal( const CCVector3d &point ) const;
+	//! Rotate a vector from the lattice-local frame back to world coordinates
+	CCVector3d rotateToWorld( const CCVector3d &vec ) const;
+
 	DeformationType m_deformationType = DeformationType::BSpline; //!< Current interpolation type
 	std::array<unsigned int, 3> m_latticeSize;      //!< Number of control points in each dimension
-	ccBBox m_boundingBox;                            //!< Bounding box of the affected region
-	std::vector<CCVector3d> m_controlPoints;         //!< Current positions of control points
-	std::vector<CCVector3d> m_originalControlPoints; //!< Original positions (for reset)
-	std::vector<CCVector3d> m_displacements;         //!< Cached displacements (current - original)
+	ccBBox m_boundingBox;                            //!< Axis-aligned bounding box (local frame)
+	std::vector<CCVector3d> m_controlPoints;         //!< Current positions of control points (world frame)
+	std::vector<CCVector3d> m_originalControlPoints; //!< Original positions (for reset, world frame)
+	std::vector<CCVector3d> m_displacements;         //!< Cached displacements (current - original, world frame)
 	bool m_dirty = false;                            //!< True if any control point has been moved
 	CCVector3d m_cellSize;                           //!< Size of each lattice cell
+
+	// Z-axis rotation
+	double m_rotationDeg = 0.0;                      //!< Rotation angle around Z in degrees
+	double m_cosR = 1.0;                             //!< cos(rotation)
+	double m_sinR = 0.0;                             //!< sin(rotation)
+	CCVector3d m_center;                             //!< Bounding box center (pivot for rotation)
 };
 
 #endif // FFD_LATTICE_HEADER
