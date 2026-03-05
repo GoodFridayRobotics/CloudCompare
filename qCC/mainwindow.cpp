@@ -127,6 +127,7 @@
 
 // CCPluginAPI
 #include <ccInfoDlg.h>
+#include <ccStdPluginInterface.h>
 
 // other
 #include "ccCropTool.h"
@@ -137,7 +138,6 @@
 #include "ccUtils.h"
 #include "db_tree/ccDBRoot.h"
 #include "pluginManager/ccPluginUIManager.h"
-#include <ccStdPluginInterface.h>
 
 // 3D mouse handler
 #ifdef CC_3DXWARE_SUPPORT
@@ -11840,6 +11840,7 @@ void MainWindow::addPluginContextMenuActions(QMenu& menu, const ccHObject::Conta
 		if (plugin && plugin->getType() == CC_STD_PLUGIN)
 		{
 			ccStdPluginInterface* stdPlugin = static_cast<ccStdPluginInterface*>(plugin);
+
 			QList<QAction*> actions = stdPlugin->getEntityContextMenuActions(selectedEntities);
 			if (!actions.isEmpty())
 			{
