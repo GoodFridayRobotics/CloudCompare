@@ -74,6 +74,18 @@ FFDLatticeParamsDlg::FFDLatticeParamsDlg(QWidget* parent)
 		m_spinPreviewPoints->setValue(type == DeformationType::BSpline ? 15000 : 50000);
 	});
 	
+	// Z-axis rotation
+	auto* rotLayout = new QHBoxLayout();
+	rotLayout->addWidget(new QLabel("Z rotation (°):", this));
+	m_spinRotation = new QDoubleSpinBox(this);
+	m_spinRotation->setRange(-360.0, 360.0);
+	m_spinRotation->setSingleStep(1.0);
+	m_spinRotation->setDecimals(2);
+	m_spinRotation->setValue(0.0);
+	m_spinRotation->setToolTip("Rotate the lattice around the Z axis (degrees).");
+	rotLayout->addWidget(m_spinRotation);
+	mainLayout->addLayout(rotLayout);
+
 	// Trajectory selection
 	auto* trajLayout = new QHBoxLayout();
 	trajLayout->addWidget(new QLabel("Trajectory:", this));
@@ -108,6 +120,12 @@ FFDLatticeParamsDlg::FFDLatticeParamsDlg(QWidget* parent)
 	connect(m_spinY, QOverload<int>::of(&QSpinBox::valueChanged), updateInfo);
 	connect(m_spinZ, QOverload<int>::of(&QSpinBox::valueChanged), updateInfo);
 	
+	// Emit parametersChanged when lattice geometry changes
+	connect(m_spinX, QOverload<int>::of(&QSpinBox::valueChanged), this, &FFDLatticeParamsDlg::parametersChanged);
+	connect(m_spinY, QOverload<int>::of(&QSpinBox::valueChanged), this, &FFDLatticeParamsDlg::parametersChanged);
+	connect(m_spinZ, QOverload<int>::of(&QSpinBox::valueChanged), this, &FFDLatticeParamsDlg::parametersChanged);
+	connect(m_spinRotation, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &FFDLatticeParamsDlg::parametersChanged);
+
 	updateInfo();
 }
 
@@ -142,6 +160,11 @@ void FFDLatticeParamsDlg::setAvailableTrajectories(const std::vector<ccPointClou
 			m_trajectoryCombo->addItem(cloud->getName());
 		}
 	}
+}
+
+double FFDLatticeParamsDlg::getRotationAngleDeg() const
+{
+	return m_spinRotation->value();
 }
 
 ccPointCloud* FFDLatticeParamsDlg::getSelectedTrajectory() const
