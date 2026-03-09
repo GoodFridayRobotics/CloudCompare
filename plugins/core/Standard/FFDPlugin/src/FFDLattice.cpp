@@ -108,6 +108,7 @@ void FFDLattice::setAllControlPoints(const std::vector<CCVector3d> &controlPoint
 
 void FFDLattice::setZRotation(double angleDeg)
 {
+	m_zRotationDeg = angleDeg;
 	double angleRad = angleDeg * M_PI / 180.0;
 	m_cosR = std::cos(angleRad);
 	m_sinR = std::sin(angleRad);

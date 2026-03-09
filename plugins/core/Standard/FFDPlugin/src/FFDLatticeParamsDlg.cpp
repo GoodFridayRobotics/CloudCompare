@@ -167,6 +167,17 @@ double FFDLatticeParamsDlg::getRotationAngleDeg() const
 	return m_spinRotation->value();
 }
 
+void FFDLatticeParamsDlg::setInitialValues(const std::array<unsigned int, 3>& dims, DeformationType deformType, double rotationDeg)
+{
+	m_spinX->setValue(static_cast<int>(dims[0]));
+	m_spinY->setValue(static_cast<int>(dims[1]));
+	m_spinZ->setValue(static_cast<int>(dims[2]));
+	int idx = m_deformTypeCombo->findData(static_cast<int>(deformType));
+	if (idx >= 0)
+		m_deformTypeCombo->setCurrentIndex(idx);
+	m_spinRotation->setValue(rotationDeg);
+}
+
 ccPointCloud* FFDLatticeParamsDlg::getSelectedTrajectory() const
 {
 	int idx = m_trajectoryCombo->currentIndex();

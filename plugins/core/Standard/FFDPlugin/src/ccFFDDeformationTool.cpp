@@ -571,7 +571,7 @@ void ccFFDDeformationTool::onShortcutTriggered(int key)
         const auto& curSize = m_lattice->getLatticeSize();
 
         FFDLatticeParamsDlg paramsDlg(m_appInterface->getMainWindow());
-        // TODO: if we stored the current rotation we could restore it here
+        paramsDlg.setInitialValues(curSize, m_lattice->getDeformationType(), m_lattice->getZRotationDeg());
 
         // Live-update the existing lattice display as the user tweaks params
         auto buildPreviewPoints = [&cloudBB](const std::array<unsigned int, 3>& dims, double rotDeg) -> std::vector<CCVector3d>

@@ -103,6 +103,9 @@ public:
 	 */
 	void setZRotation(double angleDeg);
 
+	//! Get Z-axis rotation angle in degrees
+	double getZRotationDeg() const { return m_zRotationDeg; }
+
 private:
 	//! Cubic uniform B-spline basis functions
 	/*!
@@ -132,6 +135,7 @@ private:
 	CCVector3d m_cellSize;                           //!< Size of each lattice cell
 
 	// Z-axis rotation (applied at creation time)
+	double m_zRotationDeg = 0.0;  //!< Rotation angle in degrees
 	double m_cosR = 1.0;    //!< cos(rotation angle)
 	double m_sinR = 0.0;    //!< sin(rotation angle)
 	CCVector3d m_center{0, 0, 0}; //!< Rotation center (bounding box center)
